@@ -1,0 +1,2748 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+    
+   	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-core</artifactId>
+		<version>3.2.3.RELEASE</version>
+	</dependency>
+	
+	<dependency>
+	    <groupId>redis.clients</groupId>
+	    <artifactId>jedis</artifactId>
+	    <version>2.9.0</version>
+	</dependency>
+	
+	<dependency>
+	   <groupId>com.googlecode.xmemcached</groupId>
+	   <artifactId>xmemcached</artifactId>
+	   <version>2.0.1</version>
+	</dependency>
+		
+  </dependencies>
+  
+  <build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.3</version>
+				<configuration>
+					<encoding>UTF-8</encoding>
+					<source>${jdk.version}</source>
+					<target>${jdk.version}</target>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-source-plugin</artifactId>
+				<version>2.1</version>
+				<configuration>
+					<attach>true</attach>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>compile</phase>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>true</filtering>
+			</resource>
+		</resources>
+	</build>
+</project>
+
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jee="http://www.springframework.org/schema/jee"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+                    http://www.springframework.org/schema/tx 
+                    http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+                    http://www.springframework.org/schema/jee 
+                    http://www.springframework.org/schema/jee/spring-jee-2.5.xsd
+               		http://www.springframework.org/schema/aop
+					http://www.springframework.org/schema/aop/spring-aop-2.5.xsd
+                    http://www.springframework.org/schema/context 
+                    http://www.springframework.org/schema/context/spring-context-2.5.xsd"
+	default-lazy-init="true">
+	
+	<bean id="redisCacheService" class="com.zj.cache.redis.RedisCacheService">
+		<property name="redisPoolService" ref="redisPoolService" />
+		<property name="redisClusterService" ref="redisClusterService" />
+		<property name="redisSentinelService" ref="redisSentinelService" />
+	</bean>
+
+	<bean id="redisPoolService" class="com.zj.cache.redis.mode.RedisPoolService">
+		<property name="redisConfigurationBuilder" ref="redisConfigurationBuilder_redis" />
+	</bean>
+
+	<bean id="redisConfigurationBuilder_redis" class="com.zj.cache.redis.config.RedisConfigurationBuilder"
+		init-method="initConfig">
+		<property name="jedisConfig" ref="jedisConfig" />
+		<property name="dbIndex" value="${cache.zj.redis.default.database}" />
+	</bean>
+
+	<bean id="jedisConfig" class="com.zj.cache.redis.config.JedisConfig">
+		<property name="dest" value="${cache.zj.redis.url}" />
+		<property name="jedisPoolConfig" ref="jedisPoolConfig" />
+		<property name="timeout" value="${cache.zj.redis.timeout}" />
+	</bean>
+
+	<bean id="redisSentinelService" class="com.zj.cache.redis.mode.RedisSentinelService">
+		<property name="redisConfigurationBuilder" ref="redisConfigurationBuilder_redisSentinel" />
+	</bean>
+
+	<bean id="redisConfigurationBuilder_redisSentinel" class="com.zj.cache.redis.config.RedisConfigurationBuilder"
+		init-method="initConfig">
+		<property name="jedisSentinelConfig" ref="jedisSentinelConfig" />
+		<property name="dbIndex" value="${cache.zj.redis.default.database}" />
+	</bean>
+
+	<bean id="jedisSentinelConfig" class="com.zj.cache.redis.config.JedisSentinelConfig">
+		<property name="masterName" value="mymaster" />
+		<property name="sentinels" value="${cache.zj.redis.sentinels.url}" />
+		<property name="jedisPoolConfig" ref="jedisPoolConfig" />
+		<property name="timeout" value="${cache.zj.redis.timeout}" />
+	</bean>
+
+	<bean id="redisClusterService" class="com.zj.cache.redis.mode.RedisClusterService">
+		<property name="redisConfigurationBuilder" ref="redisConfigurationBuilder_redisCluster" />
+	</bean>
+
+	<bean id="redisConfigurationBuilder_redisCluster" class="com.zj.cache.redis.config.RedisConfigurationBuilder"
+		init-method="initConfig">
+		<property name="jedisClusterConfig" ref="jedisClusterConfig" />
+		<property name="dbIndex" value="${cache.zj.redis.default.database}" />
+	</bean>
+
+	<bean id="jedisClusterConfig" class="com.zj.cache.redis.config.JedisClusterConfig">
+		<property name="clusters" value="${cache.zj.redis.cluster.url}" />
+		<property name="jedisPoolConfig" ref="jedisPoolConfig" />
+		<property name="timeout" value="${cache.zj.redis.timeout}" />
+	</bean>
+
+	<bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig">
+		<property name="maxTotal" value="${cache.zj.redis.maxtotal}" />
+		<property name="maxIdle" value="${cache.zj.redis.maxIdle}" />
+		<property name="minIdle" value="${cache.zj.redis.minIdle}" />
+		<property name="maxWaitMillis" value="${cache.zj.redis.maxWaitMillis}" />
+		<property name="blockWhenExhausted" value="true"></property>
+		<property name="testOnBorrow" value="false" />
+		<property name="testOnReturn" value="false" />
+		<property name="testWhileIdle" value="false" />
+	</bean>
+
+</beans>
+
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jee="http://www.springframework.org/schema/jee"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+                    http://www.springframework.org/schema/tx 
+                    http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+                    http://www.springframework.org/schema/jee 
+                    http://www.springframework.org/schema/jee/spring-jee-2.5.xsd
+               		http://www.springframework.org/schema/aop
+					http://www.springframework.org/schema/aop/spring-aop-2.5.xsd
+                    http://www.springframework.org/schema/context 
+                    http://www.springframework.org/schema/context/spring-context-2.5.xsd"
+	default-lazy-init="true">
+	
+	<bean id="memCacheService" class="com.zj.cache.memcache.MemCacheService">
+		<property name="memcachedClient" ref="memcachedClientFactoryBean"/>
+	</bean>
+	
+	<bean name="memcachedClientFactoryBean" class="net.rubyeye.xmemcached.utils.XMemcachedClientFactoryBean"
+		destroy-method="shutdown">
+		<property name="servers" value="${cache.zj.memcache.servers}"></property>
+		<property name="weights">
+			<list>
+				<value>1</value>
+			</list>
+		</property>
+		<property name="sessionLocator" ref="sessionLocator">
+		</property>
+	</bean>
+	
+	<bean id="sessionLocator" class="net.rubyeye.xmemcached.impl.KetamaMemcachedSessionLocator"/>
+
+</beans>
+
+
+
+
+public interface CacheService extends CacheMessageService {
+
+	/**
+	 * 新增Cache
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @param value
+	 *            缓存的value（必须序列化）
+	 */
+	public abstract void put(String key, Object value);
+
+	/**
+	 * 新增Cache（指定存活时间）
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @param value
+	 *            缓存的value（必须序列化）
+	 * @param ttl
+	 *            存活时间（单位:秒），0表示不失效，效果等同put（key,value）
+	 */
+	public abstract void put(String key, Object value, int ttl);
+
+	/**
+	 * 获取Cache
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @return 缓存存储内容
+	 */
+	public abstract Object get(String key);
+
+	/**
+	 * 获取Cache 模糊查询
+	 * 
+	 * @param keyPattern
+	 *            缓存的Key匹配
+	 * @return
+	 */
+	public abstract List<Object> gets(String keyPattern);
+
+	/**
+	 * 获取key的ttl时间
+	 * 
+	 * @param key
+	 * @return
+	 */
+	public abstract Long getTtl(String key);
+
+	/**
+	 * 删除Cache
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @return Long 成功删除的缓存个数，1:已删除相应的key 0:未匹配到相应的key
+	 */
+	public abstract Long delete(String key);
+
+	/**
+	 * 批量刪除Cache
+	 * 
+	 * @param keys
+	 *            缓存的key
+	 * @return Long 实际删除的缓存个数
+	 */
+	public abstract Long delete(String... keys);
+
+	// 以下开始为指定db的缓存操作 ↓↓↓
+	/**
+	 * 新增Cache
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @param value
+	 *            缓存的value（必须序列化）
+	 * @param dbIndex
+	 *            db序列（0-15）
+	 */
+	public abstract void putAssignDB(String key, Object value, int dbIndex);
+
+	/**
+	 * 新增Cache（指定存活时间）
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @param value
+	 *            缓存的value（必须序列化）
+	 * @param ttl
+	 *            存活时间（单位:秒），0表示不失效，效果等同put（key,value）
+	 * @param dbIndex
+	 *            db序列（0-15）
+	 */
+	public abstract void putAssignDB(String key, Object value, int ttl, int dbIndex);
+
+	/**
+	 * 获取Cache
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @param dbIndex
+	 *            db序列（0-15）
+	 * @return 缓存存储内容
+	 */
+	public abstract Object getAssignDB(String key, int dbIndex);
+
+	/**
+	 * 获取Cache 模糊查询s
+	 * 
+	 * @param keyPattern
+	 *            缓存的key匹配
+	 * @param dbIndex
+	 *            db序列（0-15）
+	 * @return 缓存存储内容
+	 */
+	public abstract List<Object> getsAssignDB(String keyPattern, int dbIndex);
+
+	/**
+	 * 获取key的ttl时间
+	 * 
+	 * @param key
+	 * @return
+	 */
+	public abstract Long getTtlAssignDB(String key, int dbIndex);
+
+	/**
+	 * 删除Cache
+	 * 
+	 * @param key
+	 *            缓存的key
+	 * @param dbIndex
+	 *            db序列（0-15）
+	 * @return Long 成功删除的缓存个数，1:已删除相应的key 0:未匹配到相应的key
+	 */
+	public abstract Long deleteAssignDB(String key, int dbIndex);
+
+	/**
+	 * 批量删除Cache
+	 * 
+	 * @param dbIndex
+	 *            db序列（0-15）
+	 * @param keys
+	 *            缓存的key
+	 * @return Long 实际删除的缓存个数
+	 */
+	public abstract Long deleteAssignDB(int dbIndex, String... keys);
+	
+	/**
+	 * 新增分布式锁（指定存活时间）
+	 * 
+	 * @param key 锁名称
+	 * @param ttl 存活时间（单位:秒）
+	 * 
+	 * @return 设置成功 true , 失败 false
+	 */
+	public abstract boolean setNX(String key, int ttl);
+
+}
+
+
+
+public interface CacheMessageService {
+
+	/**
+	 * 发布消息（广播消息）- 与subscribe配合使用
+	 * pub
+	 * 
+	 * @param key
+	 * @param value
+	 */
+	public abstract void publish(String key, String value);
+
+	/**
+	 * 订阅消息（广播消息消费）- 与publish配合使用
+	 * sub
+	 * 
+	 * @param jedisPubSub
+	 */
+	public abstract void subscribe(JedisPubSub jedisPubSub, String key);
+
+	/**
+	 * 存入消息 - 与rpop配合使用，遵循FIFO规则（点对点消息）
+	 * 将所有指定的值插入到存于 key 的列表的头部。如果 key 不存在，那么在进行 push 操作前会创建一个空列表
+	 * 
+	 * @param key
+	 * @param value
+	 */
+	public abstract Long lpush(String key, String value);
+
+	/**
+	 * 消息取出 - 与lpush配合使用，遵循FIFO规则（点对点消息消费）
+	 * 移除并返回存于 key 的 list 的最后一个元素
+	 * 
+	 * @param key
+	 * @return
+	 */
+	public abstract String rpop(String key);
+
+	/**
+	 * 阻塞式消息取出 - 与lpush配合使用，遵循FIFO规则（点对点消息消费）
+	 * 移除并返回存于 key 的 list 的最后一个元素
+	 * 
+	 * @param key
+	 * @return
+	 */
+	public abstract String brpop(String key, int ttl);
+
+	/**
+	 * 弹出消息 - 阻塞式并自动挪入新队列
+	 * 
+	 * @param source 出的队列
+	 * @param destination 入的新队列
+	 * @param ttl 最大阻塞时间 0表示不限
+	 * @return
+	 */
+	public abstract String brpoplpush(String source, String destination, int ttl);
+
+	/**
+	 * 返回数组列表的长度
+	 * 
+	 * @param key
+	 * @return
+	 */
+	public abstract Long llen(String key);
+
+}
+
+
+public class CacheException extends RuntimeException {
+
+	private static final long serialVersionUID = 1L;
+
+	public CacheException() {
+	}
+
+	public CacheException(String message) {
+		super(message);
+	}
+
+	public CacheException(String message, Throwable cause) {
+		super(message, cause);
+	}
+
+	public CacheException(Throwable cause) {
+		super(cause);
+	}
+}
+
+public class RedisServiceProvider {
+
+	private CacheService redisPoolService;
+	private CacheService redisClusterService;
+	private CacheService redisSentinelService;
+
+	public CacheService getCacheService() {
+		if (null != JedisContext.getJedisCluster()) {
+			return redisClusterService;
+		}
+
+		if (null != JedisContext.getJedisSentinelPool()) {
+			return redisSentinelService;
+		}
+
+		if (null != JedisContext.getJedisPool()) {
+			return redisPoolService;
+		}
+
+		throw new CacheException("[Cace.error] no CacheService Instance prepared, check your properties for cache");
+	}
+
+	public void setRedisClusterService(CacheService redisClusterService) {
+		this.redisClusterService = redisClusterService;
+	}
+
+	public void setRedisSentinelService(CacheService redisSentinelService) {
+		this.redisSentinelService = redisSentinelService;
+	}
+
+	public void setRedisPoolService(CacheService redisPoolService) {
+		this.redisPoolService = redisPoolService;
+	}
+
+}
+
+
+public class RedisCacheService extends RedisCacheMessageService implements CacheService {
+
+	@Override
+	public void put(String key, Object value) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		this.getCacheService().put(key, value);
+	}
+
+	@Override
+	public void put(String key, Object value, int ttl) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		this.getCacheService().put(key, value, ttl);
+	}
+
+	@Override
+	public Object get(String key) {
+		Assert.notNull(key);
+		return this.getCacheService().get(key);
+	}
+
+	@Override
+	public List<Object> gets(String keyPattern) {
+		Assert.notNull(keyPattern);
+		return this.getCacheService().gets(keyPattern);
+	}
+
+	@Override
+	public Long getTtl(String key) {
+		Assert.notNull(key);
+		return this.getCacheService().getTtl(key);
+	}
+
+	@Override
+	public Long delete(String key) {
+		Assert.notNull(key);
+		return this.getCacheService().delete(key);
+	}
+
+	@Override
+	public Long delete(String... keys) {
+		Assert.notEmpty(keys);
+		return this.getCacheService().delete(keys);
+	}
+
+	@Override
+	public void putAssignDB(String key, Object value, int dbIndex) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		this.getCacheService().putAssignDB(key, value, dbIndex);
+	}
+
+	@Override
+	public void putAssignDB(String key, Object value, int ttl, int dbIndex) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		this.getCacheService().putAssignDB(key, value, ttl, dbIndex);
+	}
+
+	@Override
+	public Object getAssignDB(String key, int dbIndex) {
+		Assert.notNull(key);
+		return this.getCacheService().getAssignDB(key, dbIndex);
+	}
+
+	@Override
+	public List<Object> getsAssignDB(String keyPattern, int dbIndex) {
+		Assert.notNull(keyPattern);
+		return this.getCacheService().getsAssignDB(keyPattern, dbIndex);
+	}
+
+	@Override
+	public Long getTtlAssignDB(String key, int dbIndex) {
+		Assert.notNull(key);
+		return this.getCacheService().getTtlAssignDB(key, dbIndex);
+	}
+
+	@Override
+	public Long deleteAssignDB(String key, int dbIndex) {
+		Assert.notNull(key);
+		return this.getCacheService().deleteAssignDB(key, dbIndex);
+	}
+
+	@Override
+	public Long deleteAssignDB(int dbIndex, String... keys) {
+		Assert.notEmpty(keys);
+		return this.getCacheService().deleteAssignDB(dbIndex, keys);
+	}
+
+	@Override
+	public boolean setNX(String key, int ttl) {
+		Assert.notNull(key);
+		return this.getCacheService().setNX(key,ttl);
+	}
+}
+
+public class RedisCacheMessageService extends RedisServiceProvider implements CacheMessageService {
+
+	@Override
+	public void publish(String key, String value) {
+		Assert.notNull(key);
+		this.getCacheService().publish(key, value);
+	}
+
+	@Override
+	public void subscribe(JedisPubSub jedisPubSub, String key) {
+		Assert.notNull(jedisPubSub);
+		this.getCacheService().subscribe(jedisPubSub, key);
+	}
+
+	@Override
+	public Long lpush(String key, String value) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		return this.getCacheService().lpush(key, value);
+	}
+
+	@Override
+	public String rpop(String key) {
+		Assert.notNull(key);
+		return this.getCacheService().rpop(key);
+	}
+
+	@Override
+	public String brpoplpush(String source, String destination, int ttl) {
+		Assert.notNull(source);
+		Assert.notNull(destination);
+		return this.getCacheService().brpoplpush(source, destination, ttl);
+	}
+
+	@Override
+	public String brpop(String key, int ttl) {
+		Assert.notNull(key);
+		return this.getCacheService().brpop(key, ttl);
+	}
+
+	@Override
+	public Long llen(String key) {
+		Assert.notNull(key);
+		return this.getCacheService().llen(key);
+	}
+}
+
+
+
+public class JDKSerializer {
+
+	private static final Logger logger = LoggerFactory.getLogger(JDKSerializer.class);
+
+	public byte[] serialize(Object obj) throws SerializationException {
+		if (obj == null) {
+			return null;
+		}
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		ObjectOutputStream objectOut = null;
+		byte[] bytes = null;
+		try {
+			objectOut = new ObjectOutputStream(output);
+			objectOut.writeObject(obj);
+			bytes = output.toByteArray();
+		} catch (Exception e) {
+			throw new RuntimeException(e.getMessage(), e);
+		} finally {
+			try {
+				if (objectOut != null) {
+					objectOut.close();
+				}
+			} catch (Exception e) {
+				logger.error("[Cache.error] JDKSerializer exception ...", e);
+			} finally {
+				objectOut = null;
+			}
+			try {
+				if (output != null) {
+					output.close();
+				}
+			} catch (Exception e) {
+				logger.error("[Cache.error] JDKSerializer exception ...", e);
+			} finally {
+				output = null;
+			}
+
+		}
+		return bytes;
+	}
+
+	public <T> T deserialize(byte[] bytes) throws SerializationException {
+		if (bytes == null || bytes.length <= 0) {
+			return null;
+		}
+		ByteArrayInputStream input = new ByteArrayInputStream(bytes);
+		ObjectInputStream objectIn = null;
+		Object object = null;
+		try {
+			objectIn = new ObjectInputStream(input);
+			object = objectIn.readObject();
+		} catch (Exception e) {
+			throw new RuntimeException(e.getMessage(), e);
+		} finally {
+			try {
+				if (objectIn != null) {
+					objectIn.close();
+				}
+			} catch (Exception e) {
+				logger.error("[Cache.error] JDKSerializer exception ...", e);
+			} finally {
+				objectIn = null;
+			}
+			try {
+				if (input != null) {
+					input.close();
+				}
+			} catch (Exception e) {
+				logger.error("[Cache.error] JDKSerializer exception ...", e);
+			} finally {
+				input = null;
+			}
+		}
+		return (T) object;
+	}
+}
+
+
+
+public class RedisSentinelService implements CacheService {
+
+	private static final Logger logger = LoggerFactory.getLogger(RedisSentinelService.class);
+
+	private RedisConfigurationBuilder redisConfigurationBuilder;
+
+
+	public void put(String key, Object value) {
+		this.putAssignDB(key, value, redisConfigurationBuilder.getDbIndex());
+	}
+
+
+	public void put(String key, Object value, int ttl) {
+		this.putAssignDB(key, value, ttl, redisConfigurationBuilder.getDbIndex());
+	}
+
+	public Object get(String key) {
+		return this.getAssignDB(key, redisConfigurationBuilder.getDbIndex());
+	}
+
+
+	public List<Object> gets(String keyPattern) {
+		return getsAssignDB(keyPattern, redisConfigurationBuilder.getDbIndex());
+	}
+
+	public Long getTtl(String key) {
+		return this.getTtlAssignDB(key, redisConfigurationBuilder.getDbIndex());
+	}
+
+	public Long delete(String key) {
+		return this.deleteAssignDB(key, redisConfigurationBuilder.getDbIndex());
+	}
+
+
+	public Long delete(String... keys) {
+		return this.deleteAssignDB(redisConfigurationBuilder.getDbIndex(), keys);
+	}
+
+
+	public void publish(String key, String value) {
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			jedis.publish(key, value);
+
+			logger.info("[Cache.succ] cache.publish {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.publish {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+
+	public void subscribe(JedisPubSub jedisPubSub, String key) {
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			jedis.subscribe(jedisPubSub, key);
+			logger.info("[Cache.succ] cache.subscribe {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.subscribe {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+
+	public Long lpush(String key, String value) {
+		Long idx = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			idx = jedis.lpush(key, value);
+			logger.info("[Cache.succ] cache.lpush {key=" + key + "} {value=" + value + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.lpush {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return idx;
+	}
+
+
+	public String rpop(String key) {
+		String o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			o = jedis.rpop(key);
+
+			if (o != null) {
+				logger.info("[Cache.succ] cache.rpop {key=" + key + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.rpop 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.rpop {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+	@Override
+	public String brpop(String key, int ttl) {
+		String o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			List<String> list = jedis.brpop(ttl, key);
+			if (null != list && list.size() > 1) {
+				o = list.get(1);
+				logger.info("[Cache.succ] cache.brpop {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.brpop {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+
+	@Override
+	public String brpoplpush(String source, String destination, int ttl) {
+		String o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			o = jedis.brpoplpush(source, destination, ttl);
+
+			if (o != null) {
+				logger.info("[Cache.succ] cache.brpoplpush {source=" + source + "} {destination=" + destination + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.brpoplpush 'result is null' {source=" + source + "} {destination=" + destination + "}...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.brpoplpush {source=" + source + "} {destination=" + destination + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+	@Override
+	public Long llen(String key) {
+		Long len = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			len = jedis.llen(key.getBytes());
+			logger.info("[Cache.succ] cache.llen {key=" + key + "}, {len=" + len + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.llen {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return len;
+	}
+
+
+	public void putAssignDB(String key, Object value, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Cache.Fail] cache.put 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return;
+		}
+
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			jedis.set(key.getBytes(), redisConfigurationBuilder.getjDKSerializer().serialize(value));
+
+			logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.putAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+	@Override
+	public void putAssignDB(String key, Object value, int ttl, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Cache.Fail] cache.put 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return;
+		}
+
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			if (ttl <= 0) {
+				// 永久有效
+				jedis.set(key.getBytes(), redisConfigurationBuilder.getjDKSerializer().serialize(value));
+			} else {
+				// ttl
+				jedis.setex(key.getBytes(), ttl, redisConfigurationBuilder.getjDKSerializer().serialize(value));
+			}
+			logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.putAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+
+	@Override
+	public Object getAssignDB(String key, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Cache.fail] cache.get 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return null;
+		}
+
+		Object o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+
+			// redis存储结构判断，详见 RedisStoreEnum 枚举或官方文档
+			String type = jedis.type(key);
+
+			// 不存在
+			if (null == type || type.equals(RedisStoreEnum.NONE.getKey())) {
+				logger.info("[Cache.fail] cache.get 'key does not exist', {key=" + key + "} ...");
+				// 为了明确是key不存在.此处返回的是null而不是空字符串，一般不建议这么使用，以免外层方法出现NullPointException
+				return null;
+			}
+
+			// hash
+			else if (type.equals(RedisStoreEnum.HASH.getKey())) {
+				o = jedis.hgetAll(key);
+			}
+
+			// string
+			else if (type.equals(RedisStoreEnum.STR.getKey())) {
+				try {
+					// 使用封装方法存入的value被序列化了
+					o = redisConfigurationBuilder.getjDKSerializer().deserialize(jedis.get(key.getBytes()));
+				} catch (Exception e) {
+					// 直接存入的字符串
+					o = jedis.get(key);
+				}
+			}
+
+			// set
+			else if (type.equals(RedisStoreEnum.SET.getKey())) {
+				o = jedis.smembers(key);
+			}
+
+			// sort-set
+			else if (type.equals(RedisStoreEnum.ZSET.getKey())) {
+				Long len = jedis.zcard(key);
+				if (len > 0) {
+					o = jedis.zrevrange(key, 0, len - 1);
+				}
+			}
+
+			// list
+			else if (type.equals(RedisStoreEnum.LIST.getKey())) {
+				Long len = jedis.llen(key);
+				if (len > 0) {
+					List<Object> stringList = new ArrayList<Object>();
+					List<String> serializeList = jedis.lrange(key, 0, len - 1);
+					for (String item : serializeList) {
+						stringList.add(redisConfigurationBuilder.getjDKSerializer().deserialize(item.getBytes()));
+					}
+					o = stringList;
+				}
+			}
+
+			if (o != null) {
+				logger.info("[Cache.succ] cache.get {key=" + key + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.get 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.getAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+	/**
+	 * 获取cache
+	 */
+	@Override
+	public List<Object> getsAssignDB(String keyPattern, int dbIndex) {
+		List<Object> result = new ArrayList<Object>();
+		Jedis jedis = null;
+
+		try {
+			if (!RedisValidator.keyPatternLegal(keyPattern)) {
+				logger.info("[Cache.fail] cache.get 'keyPattern illegal', {keyPattern=" + keyPattern + ", db=" + dbIndex + "} ...");
+				return null;
+			}
+
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+
+			Set<String> keys = jedis.keys(keyPattern);
+			if (null == keys || keys.size() <= 0) {
+				logger.info("[Cache.fail] cache.gets 'not found and match key', {keyPattern=" + keyPattern + "} ...");
+				return null;
+			}
+
+			for (String key : keys) {
+				result.add(getAssignDB(key, dbIndex));
+			}
+
+			if (null != result && result.size() > 0) {
+				logger.info("[Cache.succ] cache.gets {keyPattern=" + keyPattern + "}, {result.cnt=" + result.size() + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.gets 'result is null' {keyPattern=" + keyPattern + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.gets {keyPattern=" + keyPattern + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+
+		return result;
+	}
+
+	/**
+	 * 获取ttl
+	 */
+	@Override
+	public Long getTtlAssignDB(String key, int dbIndex) {
+		Long ttl = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			ttl = jedis.ttl(key);
+			if (null == ttl) {
+				logger.info("[Cache.fail] cache.getTtl 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.getTtl {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return ttl;
+	}
+
+	/**
+	 * 指定db删除
+	 */
+	@Override
+	public Long deleteAssignDB(String key, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Fail.delete] cache.delete 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return 0L;
+		}
+
+		Long r = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			r = jedis.del(key);
+			logger.info("[Cache.succ] cache.delete {" + key + ", record=" + r + "}...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.deleteAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * 指定db批量删除
+	 */
+	@Override
+	public Long deleteAssignDB(int dbIndex, String... keys) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Fail.delete] cache.delete 'dbIndex illegal', {keys=" + Arrays.asList(keys) + ", db=" + dbIndex + "} ...");
+			return 0L;
+		}
+
+		Long r = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			jedis.del(keys);
+			logger.info("[Cache.succ] cache.delete {" + Arrays.asList(keys) + ", record=" + r + "}...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.deleteAssignDB {key=" + Arrays.asList(keys) + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return r;
+	}
+
+	public void setRedisConfigurationBuilder(RedisConfigurationBuilder redisConfigurationBuilder) {
+		this.redisConfigurationBuilder = redisConfigurationBuilder;
+	}
+
+	@Override
+	public boolean setNX(String key, int ttl) {
+		Jedis jedis = null;
+		boolean result = false;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			Long r = jedis.setnx(key, "");
+			logger.info("[Cache.succ] cache.setNX {key=" + key + ", ttl=" + ttl + "}");
+			if(r == 1) {
+				result = true;
+				jedis.setex(key, ttl, "");
+			} else {
+				result = false;
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.setNX {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return result;
+	}
+	
+}
+
+
+public class RedisPoolService implements CacheService {
+
+	private static final Logger logger = LoggerFactory.getLogger(RedisPoolService.class);
+
+	private RedisConfigurationBuilder redisConfigurationBuilder;
+
+	/**
+	 * 新增cache, ttl=永久
+	 */
+	@Override
+	public void put(String key, Object value) {
+		this.putAssignDB(key, value, redisConfigurationBuilder.getDbIndex());
+	}
+
+	/**
+	 * 新增cache, 指定ttl(单位：s)
+	 */
+	@Override
+	public void put(String key, Object value, int ttl) {
+		this.putAssignDB(key, value, ttl, redisConfigurationBuilder.getDbIndex());
+	}
+
+	/**
+	 * 获取cache
+	 */
+	@Override
+	public Object get(String key) {
+		return this.getAssignDB(key, redisConfigurationBuilder.getDbIndex());
+	}
+
+	/**
+	 * 获取cache
+	 */
+	@Override
+	public List<Object> gets(String keyPattern) {
+		return getsAssignDB(keyPattern, redisConfigurationBuilder.getDbIndex());
+	}
+
+	/**
+	 * 获取ttl
+	 */
+	@Override
+	public Long getTtl(String key) {
+		return this.getTtlAssignDB(key, redisConfigurationBuilder.getDbIndex());
+	}
+
+	/**
+	 * 删除
+	 */
+	@Override
+	public Long delete(String key) {
+		return this.deleteAssignDB(key, redisConfigurationBuilder.getDbIndex());
+	}
+
+	/**
+	 * 批量删除
+	 */
+	@Override
+	public Long delete(String... keys) {
+		return this.deleteAssignDB(redisConfigurationBuilder.getDbIndex(), keys);
+	}
+
+	/**
+	 * 发布消息
+	 * 
+	 * @param key
+	 * @param value
+	 */
+	@Override
+	public void publish(String key, String value) {
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			jedis.publish(key, value);
+			logger.info("[Cache.succ] cache.publish {key=" + key + "} {value=" + value + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.publish {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+	/**
+	 * 订阅消息
+	 */
+	@Override
+	public void subscribe(JedisPubSub jedisPubSub, String key) {
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			jedis.subscribe(jedisPubSub, key);
+			logger.info("[Cache.succ] cache.subscribe {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.subscribe {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+	/**
+	 * 消息入队列
+	 */
+	@Override
+	public Long lpush(String key, String value) {
+		Long idx = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			idx = jedis.lpush(key, value);
+			logger.info("[Cache.succ] cache.lpush {key=" + key + "} {value=" + value + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.lpush {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return idx;
+	}
+
+	/**
+	 * 消息出队列
+	 */
+	@Override
+	public String rpop(String key) {
+		String o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			o = jedis.rpop(key);
+
+			if (o != null) {
+				logger.info("[Cache.succ] cache.rpop {key=" + key + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.rpop 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.rpop {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+	@Override
+	public String brpop(String key, int ttl) {
+		String o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			List<String> list = jedis.brpop(ttl, key);
+			if (null != list && list.size() > 1) {
+				o = list.get(1);
+				logger.info("[Cache.succ] cache.brpop {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.brpop {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+	/**
+	 * 阻塞式弹出并入新队列
+	 */
+	@Override
+	public String brpoplpush(String source, String destination, int ttl) {
+		String o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			o = jedis.brpoplpush(source, destination, ttl);
+
+			if (o != null) {
+				logger.info("[Cache.succ] cache.brpoplpush {source=" + source + "} {destination=" + destination + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.brpoplpush 'result is null' {source=" + source + "} {destination=" + destination + "}...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.brpoplpush {source=" + source + "} {destination=" + destination + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+	/**
+	 * 返回数组列表长度
+	 */
+	@Override
+	public Long llen(String key) {
+		Long len = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+
+			len = jedis.llen(key.getBytes());
+			logger.info("[Cache.succ] cache.llen {key=" + key + "}, {len=" + len + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.llen {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return len;
+	}
+
+	/**
+	 * 指定db新增
+	 */
+	public void putAssignDB(String key, Object value, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Cache.Fail] cache.put 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return;
+		}
+
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			jedis.set(key.getBytes(), redisConfigurationBuilder.getjDKSerializer().serialize(value));
+			// group stroe
+			storeKeyGroup(key, 0, dbIndex);
+			logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.putAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+	/**
+	 * 指定db新增
+	 */
+	@Override
+	public void putAssignDB(String key, Object value, int ttl, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Cache.Fail] cache.put 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return;
+		}
+
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			if (ttl <= 0) {
+				// 永久有效
+				jedis.set(key.getBytes(), redisConfigurationBuilder.getjDKSerializer().serialize(value));
+			} else {
+				// ttl
+				jedis.setex(key.getBytes(), ttl, redisConfigurationBuilder.getjDKSerializer().serialize(value));
+			}
+
+			// group stroe
+			storeKeyGroup(key, ttl, dbIndex);
+
+			logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.putAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+	}
+
+	/**
+	 * 指定db查询
+	 */
+	@Override
+	public Object getAssignDB(String key, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Cache.fail] cache.get 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return null;
+		}
+
+		Object o = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+
+			// redis存储结构判断，详见 RedisStoreEnum 枚举或官方文档
+			String type = jedis.type(key);
+
+			// 不存在
+			if (null == type || type.equals(RedisStoreEnum.NONE.getKey())) {
+				deleteKeyGroup(key, dbIndex);
+				logger.info("[Cache.fail] cache.get 'key does not exist', {key=" + key + "} ...");
+				// 为了明确是key不存在.此处返回的是null而不是空字符串，一般不建议这么使用，以免外层方法出现NullPointException
+				return null;
+			}
+
+			// hash
+			else if (type.equals(RedisStoreEnum.HASH.getKey())) {
+				o = jedis.hgetAll(key);
+			}
+
+			// string
+			else if (type.equals(RedisStoreEnum.STR.getKey())) {
+				try {
+					// 使用封装方法存入的value被序列化了
+					o = redisConfigurationBuilder.getjDKSerializer().deserialize(jedis.get(key.getBytes()));
+				} catch (Exception e) {
+					// 直接存入的字符串
+					o = jedis.get(key);
+				}
+			}
+
+			// set
+			else if (type.equals(RedisStoreEnum.SET.getKey())) {
+				o = jedis.smembers(key);
+			}
+
+			// sort-set
+			else if (type.equals(RedisStoreEnum.ZSET.getKey())) {
+				Long len = jedis.zcard(key);
+				if (len > 0) {
+					o = jedis.zrevrange(key, 0, len - 1);
+				}
+			}
+
+			// list
+			else if (type.equals(RedisStoreEnum.LIST.getKey())) {
+				Long len = jedis.llen(key);
+				if (len > 0) {
+					o = jedis.lrange(key, 0, len - 1);
+				}
+			}
+
+			if (o != null) {
+				logger.info("[Cache.succ] cache.get {key=" + key + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.get 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.getAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return o;
+	}
+
+	/**
+	 * 获取cache
+	 */
+	@Override
+	public List<Object> getsAssignDB(String keyPattern, int dbIndex) {
+		List<Object> result = new ArrayList<Object>();
+		Jedis jedis = null;
+
+		try {
+			if (!RedisValidator.keyPatternLegal(keyPattern)) {
+				logger.info("[Cache.fail] cache.get 'keyPattern illegal', {keyPattern=" + keyPattern + ", db=" + dbIndex + "} ...");
+				return null;
+			}
+
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+
+			Object o_keys = getAssignDB(JedisContext.groupKey(keyPattern), dbIndex);
+
+			Set<String> keys = (Set<String>) o_keys;
+			if (null == keys || keys.size() <= 0) {
+				logger.info("[Cache.fail] cache.gets 'not found any match key', {keyPattern=" + keyPattern + "} ...");
+				return null;
+			}
+
+			for (String key : keys) {
+				Object r = getAssignDB(key, dbIndex);
+				if (null != r) {
+					result.add(r);
+				}
+			}
+
+			if (null != result && result.size() > 0) {
+				logger.info("[Cache.succ] cache.gets {keyPattern=" + keyPattern + "}, {result.cnt=" + result.size() + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.gets 'result is null' {keyPattern=" + keyPattern + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.gets {keyPattern=" + keyPattern + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * 获取ttl
+	 */
+	@Override
+	public Long getTtlAssignDB(String key, int dbIndex) {
+		Long ttl = null;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			ttl = jedis.ttl(key);
+			if (null == ttl) {
+				logger.info("[Cache.fail] cache.getTtl 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.getTtl {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return ttl;
+	}
+
+	/**
+	 * 指定db删除
+	 */
+	@Override
+	public Long deleteAssignDB(String key, int dbIndex) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Fail.delete] cache.delete 'dbIndex illegal', {key=" + key + ", db=" + dbIndex + "} ...");
+			return 0L;
+		}
+
+		Long r = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			r = jedis.del(key);
+
+			deleteKeyGroup(key, dbIndex);
+			logger.info("[Cache.succ] cache.delete {" + key + ", record=" + r + "}...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.deleteAssignDB {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * 指定db批量删除
+	 */
+	@Override
+	public Long deleteAssignDB(int dbIndex, String... keys) {
+		if (!RedisValidator.dbIndexLegal(dbIndex)) {
+			logger.info("[Fail.delete] cache.delete 'dbIndex illegal', {keys=" + Arrays.asList(keys) + ", db=" + dbIndex + "} ...");
+			return 0L;
+		}
+
+		Long r = 0l;
+		Jedis jedis = null;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(dbIndex);
+			r += jedis.del(keys);
+			logger.info("[Cache.succ] cache.delete {" + Arrays.asList(keys) + ", record=" + r + "}...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.deleteAssignDB {key=" + Arrays.asList(keys) + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return r;
+	}
+
+	/**
+	 * 保存KeyGroup
+	 * 
+	 * @param key
+	 * @param ttl
+	 * @param dbIndex
+	 */
+	private synchronized void storeKeyGroup(String key, int ttl, int dbIndex) {
+		String groupKey = JedisContext.groupKey(key);
+		// 保存KeyGroup
+		if (!StringUtils.isEmpty(groupKey)) {
+			Object keyGroup = getAssignDB(groupKey, dbIndex);
+			Set<String> keySet;
+			if (null == keyGroup) {
+				keySet = new HashSet<String>();
+			} else {
+				keySet = (Set<String>) keyGroup;
+			}
+
+			keySet.add(key);
+			putAssignDB(groupKey, keySet, ttl, dbIndex);
+		}
+	}
+
+	/**
+	 * 删除KeyGroup
+	 * 
+	 * @param key
+	 * @param ttl
+	 * @param dbIndex
+	 */
+	private synchronized void deleteKeyGroup(String key, int dbIndex) {
+		String groupKey = JedisContext.groupKey(key);
+		// 保存KeyGroup
+		if (!StringUtils.isEmpty(groupKey)) {
+			Object keyGroup = getAssignDB(groupKey, dbIndex);
+
+			Set<String> keySet = null;
+			if (null != keyGroup) {
+				keySet = (Set<String>) keyGroup;
+
+				if (null != keySet && keySet.size() > 0) {
+					keySet.remove(key);
+				}
+
+				if (null != keySet && keySet.size() > 0) {
+					Long ttl = getTtlAssignDB(groupKey, dbIndex);
+					putAssignDB(groupKey, keySet, null == ttl ? 0 : ttl.intValue(), dbIndex);
+				} else {
+					deleteAssignDB(groupKey, dbIndex);
+				}
+
+			}
+		}
+	}
+
+	public void setRedisConfigurationBuilder(RedisConfigurationBuilder redisConfigurationBuilder) {
+		this.redisConfigurationBuilder = redisConfigurationBuilder;
+	}
+	
+	@Override
+	public boolean setNX(String key, int ttl) {
+		System.out.println("setNX");
+		Jedis jedis = null;
+		boolean result = false;
+		try {
+			jedis = redisConfigurationBuilder.getJedisPool().getResource();
+			jedis.select(redisConfigurationBuilder.getDbIndex());
+			Long r = jedis.setnx(key, "");
+			logger.info("[Cache.succ] cache.setNX {key=" + key + ", ttl=" + ttl + "}");
+			if(r == 1) {
+				result = true;
+				jedis.setex(key, ttl, "");
+			} else {
+				result = false;
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.setNX {key=" + key + "} fail ...", e);
+		} finally {
+			if (null != jedis) {
+				jedis.close();
+			}
+		}
+		return result;
+	}
+}
+
+public class RedisClusterService implements CacheService {
+
+	private static final Logger logger = LoggerFactory.getLogger(RedisPoolService.class);
+
+	private RedisConfigurationBuilder redisConfigurationBuilder;
+
+	/**
+	 * 新增cache, ttl=永久
+	 */
+	@Override
+	public void put(String key, Object value) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		// 序列化
+		jedisCluster.set(key.getBytes(), redisConfigurationBuilder.getjDKSerializer().serialize(value));
+
+		logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+	}
+
+	/**
+	 * 发布消息
+	 */
+	@Override
+	public void publish(String key, String value) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		// 序列化
+		jedisCluster.publish(key, value);
+
+		logger.info("[Cache.succ] cache.publish {key=" + key + "} ...");
+	}
+
+	/**
+	 * 订阅消息
+	 */
+	@Override
+	public void subscribe(JedisPubSub jedisPubSub, String key) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		jedisCluster.subscribe(jedisPubSub, key);
+		logger.info("[Cache.succ] cache.subscribe ...");
+	}
+
+	/**
+	 * 消息入队列
+	 */
+	@Override
+	public Long lpush(String key, String value) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		Long idx = jedisCluster.lpush(key, value);
+		logger.info("[Cache.succ] cache.lpush {key=" + key + "} ...");
+		return idx;
+	}
+
+	/**
+	 * 消息出队列
+	 */
+	@Override
+	public String rpop(String key) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		String o = jedisCluster.rpop(key);
+		logger.info("[Cache.succ] cache.rpop {key=" + key + "} ...");
+		return o;
+	}
+
+	/**
+	 * 阻塞式弹出
+	 */
+	@Override
+	public String brpop(String key, int ttl) {
+		String o = null;
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+
+		List<String> list = jedisCluster.brpop(ttl, key);
+		if (null != list && list.size() > 1) {
+			o = list.get(1);
+		}
+		logger.info("[Cache.succ] cache.brpop {key=" + key + "} ...");
+		return o;
+	}
+
+	/**
+	 * 阻塞式弹出并入新队列
+	 */
+	@Override
+	public String brpoplpush(String source, String destination, int ttl) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		String o = jedisCluster.brpoplpush(source, destination, ttl);
+		logger.info("[Cache.succ] cache.brpoplpush {source=" + source + "} {destination=" + destination + "} ...");
+		return o;
+	}
+
+	/**
+	 * 返回数组列表长度
+	 */
+	@Override
+	public Long llen(String key) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		return jedisCluster.llen(key.getBytes());
+	}
+
+	/**
+	 * 新增cache, 指定ttl(单位：s)
+	 */
+	@Override
+	public void put(String key, Object value, int ttl) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		if (ttl <= 0) {
+			// 永久有效
+			jedisCluster.set(key.getBytes(), redisConfigurationBuilder.getjDKSerializer().serialize(value));
+		} else {
+			// ttl
+			jedisCluster.setex(key.getBytes(), Long.valueOf(ttl).intValue(), redisConfigurationBuilder.getjDKSerializer().serialize(value));
+		}
+		logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+	}
+
+	/**
+	 * 获取cache
+	 */
+	@Override
+	public Object get(String key) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		Object o = null;
+		try {
+			// redis存储结构判断，详见 RedisStoreEnum 枚举或官方文档
+			String type = jedisCluster.type(key);
+
+			// 不存在
+			if (null == type || type.equals(RedisStoreEnum.NONE.getKey())) {
+				logger.info("[Cache.fail] key does not exist, cache.get {key=" + key + "} ...");
+				// 为了明确是key不存在.此处返回的是null而不是空字符串，一般不建议这么使用，以免外层方法出现NullPointException
+				return null;
+			}
+
+			// hash
+			else if (type.equals(RedisStoreEnum.HASH.getKey())) {
+				o = jedisCluster.hgetAll(key);
+			}
+
+			// string
+			else if (type.equals(RedisStoreEnum.STR.getKey())) {
+				try {
+					// 使用封装方法存入的value被序列化了
+					o = redisConfigurationBuilder.getjDKSerializer().deserialize(jedisCluster.get(key.getBytes()));
+				} catch (Exception e) {
+					// 直接存入的字符串
+					o = jedisCluster.get(key);
+				}
+			}
+
+			// set
+			else if (type.equals(RedisStoreEnum.SET.getKey())) {
+				o = jedisCluster.smembers(key);
+			}
+
+			// sort-set
+			else if (type.equals(RedisStoreEnum.ZSET.getKey())) {
+				Long len = jedisCluster.zcard(key);
+				if (len > 0) {
+					o = jedisCluster.zrevrange(key, 0, len - 1);
+				}
+			}
+
+			// list
+			else if (type.equals(RedisStoreEnum.LIST.getKey())) {
+				Long len = jedisCluster.llen(key);
+				if (len > 0) {
+					o = jedisCluster.lrange(key, 0, len - 1);
+				}
+			}
+
+			if (o != null) {
+				logger.info("[Cache.succ] cache.get {key=" + key + "} ...");
+			} else {
+				logger.info("[Cache.fail] result is null, cache.get {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.get {key=" + key + "} fail ...", e);
+		}
+		// 反序列化
+		return o;
+	}
+
+	/**
+	 * 获取Cache
+	 */
+	@Override
+	public List<Object> gets(String keyPattern) {
+		if (!RedisValidator.keyPatternLegal(keyPattern)) {
+			logger.info("[Cache.fail] cache.get 'keyPattern illegal', {keyPattern=" + keyPattern + "} ...");
+			return null;
+		}
+
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+
+		Set<String> keys = new HashSet<String>();
+		if (!jedisCluster.getClusterNodes().isEmpty()) {
+			for (String node : jedisCluster.getClusterNodes().keySet()) {
+				Jedis jedis = null;
+				try {
+					jedis = jedisCluster.getClusterNodes().get(node).getResource();
+					keys.addAll(jedis.keys(keyPattern));
+				} catch (Exception e) {
+					logger.error("[Cache.error] cache.gets {keyPattern=" + keyPattern + "} fail ...", e);
+				} finally {
+					if (null != jedis) {
+						jedis.close();
+					}
+				}
+			}
+		}
+
+		if (null == keys || keys.size() <= 0) {
+			logger.info("[Cache.fail] cache.get 'not found and match key', {keyPattern=" + keyPattern + "} ...");
+			return null;
+		}
+
+		List<Object> result = new ArrayList<Object>();
+
+		for (String key : keys) {
+			result.add(get(key));
+		}
+
+		if (null != result && result.size() > 0) {
+			logger.info("[Cache.succ] cache.get {keyPattern=" + keyPattern + "}, {result.cnt=" + result.size() + "} ...");
+		} else {
+			logger.info("[Cache.fail] cache.get 'result is null' {keyPattern=" + keyPattern + "} ...");
+		}
+
+		return result;
+	}
+
+	/**
+	 * 获取ttl
+	 */
+	@Override
+	public Long getTtl(String key) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		Long ttl = null;
+		try {
+			ttl = jedisCluster.ttl(key);
+			if (null == ttl) {
+				logger.info("[Cache.fail] cache.getTtl 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.getTtl {key=" + key + "} fail ...", e);
+		}
+		return ttl;
+	}
+
+	/**
+	 * 删除
+	 */
+	@Override
+	public Long delete(String key) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		Long r = jedisCluster.del(key);
+
+		logger.info("[Cache.succ] cache.delete {key=" + key + ", record=" + r + "}...");
+
+		return r;
+	}
+
+	/**
+	 * 批量删除
+	 */
+	@Override
+	public Long delete(String... keys) {
+		logger.info("[Cache.warn] cache.delete 'clusterMode not support MULTIKEY, adapter with loop deleteSingle', {keys=" + Arrays.asList(keys) + "} ");
+		Long r = 0L;
+		for (String key : keys) {
+			r += this.delete(key);
+		}
+
+		return r;
+	}
+
+	/**
+	 * 新增cache
+	 */
+	@Override
+	public void putAssignDB(String key, Object value, int dbIndex) {
+		logger.info("[Cache.warn] cache.put 'clusterMode not support SELECTDB, use default 0', {key=" + key + "} ");
+
+		this.put(key, value);
+	}
+
+	/**
+	 * not support
+	 */
+	@Override
+	public void putAssignDB(String key, Object value, int ttl, int dbIndex) {
+		logger.info("[Cache.warn] cache.put 'clusterMode not support SELECTDB, use default 0', {key=" + key + "} ");
+		this.put(key, value, ttl);
+	}
+
+	/**
+	 * not support
+	 */
+	@Override
+	public Object getAssignDB(String key, int dbIndex) {
+		logger.info("[Cache.warn] cache.get 'clusterMode not support SELECTDB, use default 0', {key=" + key + "} ...");
+		return get(key);
+	}
+
+	/**
+	 * not support
+	 */
+	@Override
+	public List<Object> getsAssignDB(String keyPattern, int dbIndex) {
+		logger.info("[Cache.warn] cache.get 'clusterMode not support SELECTDB, use default 0', {keyPattern=" + keyPattern + "} ...");
+		return gets(keyPattern);
+	}
+
+	/**
+	 * not support
+	 */
+	@Override
+	public Long getTtlAssignDB(String key, int dbIndex) {
+		logger.info("[Cache.warn] cache.getTtl 'clusterMode not support SELECTDB, use default 0', {key=" + key + "} ...");
+		return getTtl(key);
+	}
+
+	/**
+	 * not support
+	 */
+	@Override
+	public Long deleteAssignDB(String key, int dbIndex) {
+		logger.info("[Cache.warn] cache.delete 'clusterMode not support SELECTDB, use default 0', {key=" + key + "} ...");
+		return this.delete(key);
+	}
+
+	/**
+	 * not support
+	 */
+	@Override
+	public Long deleteAssignDB(int dbIndex, String... keys) {
+		logger.info("[Cache.warn] cache.delete 'clusterMode not support SELECTDB, use default 0', {keys=" + Arrays.asList(keys) + "} ...");
+		return delete(keys);
+	}
+
+	public void setRedisConfigurationBuilder(RedisConfigurationBuilder redisConfigurationBuilder) {
+		this.redisConfigurationBuilder = redisConfigurationBuilder;
+	}
+
+	@Override
+	public boolean setNX(String key, int ttl) {
+		JedisCluster jedisCluster = redisConfigurationBuilder.getJedisCluster();
+		boolean result = false;
+		Long r = jedisCluster.setnx(key, "");
+		logger.info("[Cache.succ] cache.setNX {key=" + key + ", ttl=" + ttl + "}");
+		if(r == 1) {
+			result = true;
+			jedisCluster.setex(key, ttl, "");
+		} else {
+			result = false;
+		}
+		return result;
+	}
+}
+
+
+
+
+public class RedisConfigurationBuilder {
+
+	private static final Logger logger = LoggerFactory.getLogger(RedisConfigurationBuilder.class);
+
+	// 默认库（注意，这是一个基本类型，有默认值0）
+	private int dbIndex;
+
+	// 连接方式一
+	private JedisClusterConfig jedisClusterConfig;
+	private JedisCluster jedisCluster;
+
+	// 连接方式二
+	private JedisConfig jedisConfig;
+	private JedisPool jedisPool;
+
+	// 连接方式三
+	private JedisSentinelConfig jedisSentinelConfig;
+	private JedisSentinelPool jedisSentinelPool;
+
+	private JDKSerializer jDKSerializer;
+
+	public void initConfig() {
+		parseConfiguration();
+	}
+
+	public void parseConfiguration() throws CacheException {
+		// 通过判断是否可实例化连接配置的方式，跳过失败的实例，达到兼容多种模式的配置目的
+		// 前提：参数初始化时ignoreUnresolvablePlaceholders
+		if (null != jedisConfig && RedisValidator.propertyLegal(jedisConfig.getDest())) {
+			this.jedisPool = jedisConfig.getJedisPool();
+			JedisContext.setJedisPool(jedisPool);
+			logger.info("[Cache.info] jedisPool initialized, redis={" + jedisConfig.getDest() + "}... ");
+		}
+
+		if (null != jedisClusterConfig && RedisValidator.propertyLegal(jedisClusterConfig.getClusters())) {
+			this.jedisCluster = jedisClusterConfig.getJedisCluster();
+			JedisContext.setJedisCluster(jedisCluster);
+			logger.info("[Cache.info] jedisCluster initialized, redis={" + jedisClusterConfig.getClusters() + "}... ");
+		}
+
+		if (null != jedisSentinelConfig && RedisValidator.propertyLegal(jedisSentinelConfig.getSentinels())) {
+			this.jedisSentinelPool = jedisSentinelConfig.getJedisSentinel();
+			JedisContext.setJedisSentinelPool(jedisSentinelPool);
+			logger.info("[Cache.info] jedisSentinel initialized, redis={" + jedisSentinelConfig.getSentinels() + "}... ");
+		}
+
+		this.jDKSerializer = new JDKSerializer();
+	}
+
+	public JedisCluster getJedisCluster() {
+		return jedisCluster;
+	}
+
+	public void setJedisCluster(JedisCluster jedisCluster) {
+		this.jedisCluster = jedisCluster;
+	}
+
+	public JedisSentinelPool getJedisSentinelPool() {
+		return jedisSentinelPool;
+	}
+
+	public void setJedisSentinelPool(JedisSentinelPool jedisSentinelPool) {
+		this.jedisSentinelPool = jedisSentinelPool;
+	}
+
+	public JDKSerializer getjDKSerializer() {
+		return jDKSerializer;
+	}
+
+	public void setjDKSerializer(JDKSerializer jDKSerializer) {
+		this.jDKSerializer = jDKSerializer;
+	}
+
+	public void setJedisClusterConfig(JedisClusterConfig jedisClusterConfig) {
+		this.jedisClusterConfig = jedisClusterConfig;
+	}
+
+	public void setJedisConfig(JedisConfig jedisConfig) {
+		this.jedisConfig = jedisConfig;
+	}
+
+	public void setJedisSentinelConfig(JedisSentinelConfig jedisSentinelConfig) {
+		this.jedisSentinelConfig = jedisSentinelConfig;
+	}
+
+	public JedisPool getJedisPool() {
+		return jedisPool;
+	}
+
+	public void setJedisPool(JedisPool jedisPool) {
+		this.jedisPool = jedisPool;
+	}
+
+	public int getDbIndex() {
+		return dbIndex;
+	}
+
+	public void setDbIndex(int dbIndex) {
+		this.dbIndex = dbIndex;
+	}
+}
+
+public class JedisSentinelConfig {
+
+	private String masterName;
+	private String sentinels;
+	private JedisPoolConfig jedisPoolConfig;
+	private int timeout;
+
+	public JedisSentinelPool getJedisSentinel() throws CacheException {
+		try {
+			Set<String> hset = new HashSet<String>();
+			String[] args = sentinels.split(";");
+			for (String arg : args) {
+				hset.add(arg);
+			}
+			return new JedisSentinelPool(masterName, hset, jedisPoolConfig, timeout);
+		} catch (Exception e) {
+			throw new CacheException("JedisClusterFactory.getJedisSentinel error", e);
+		}
+	}
+
+	public String getMasterName() {
+		return masterName;
+	}
+
+	public void setMasterName(String masterName) {
+		this.masterName = masterName;
+	}
+
+	public String getSentinels() {
+		return sentinels;
+	}
+
+	public void setSentinels(String sentinels) {
+		this.sentinels = sentinels;
+	}
+
+	public int getTimeout() {
+		return timeout;
+	}
+
+	public void setTimeout(int timeout) {
+		this.timeout = timeout;
+	}
+
+	public JedisPoolConfig getJedisPoolConfig() {
+		return jedisPoolConfig;
+	}
+
+	public void setJedisPoolConfig(JedisPoolConfig jedisPoolConfig) {
+		this.jedisPoolConfig = jedisPoolConfig;
+	}
+}
+
+
+public class JedisConfig {
+
+	// ip1:port1
+	private String dest;
+	private JedisPoolConfig jedisPoolConfig;
+
+	// 连接超时 ms
+	private int timeout;
+
+	public JedisPool getJedisPool() throws CacheException {
+		try {
+			String[] info = dest.split(":");
+
+			if (null == info || info.length != 2) {
+				throw new IllegalArgumentException("getJedisPool error, dest is not illegal , dest = {" + dest + "} ");
+			}
+			String host = info[0];
+			Integer port = Integer.valueOf(info[1]);
+
+			return new JedisPool(jedisPoolConfig, host, port, timeout);
+		} catch (Exception e) {
+			throw new CacheException("JedisClusterFactory.getJedisPool error", e);
+		}
+	}
+
+	public void setDest(String dest) {
+		this.dest = dest;
+	}
+
+	public String getDest() {
+		return dest;
+	}
+
+	public void setJedisPoolConfig(JedisPoolConfig jedisPoolConfig) {
+		this.jedisPoolConfig = jedisPoolConfig;
+	}
+
+	public void setTimeout(int timeout) {
+		this.timeout = timeout;
+	}
+}
+
+
+public class JedisClusterConfig {
+
+	// 集群 ip1:port1;ip2:port2;ip3:port4
+	private String clusters;
+
+	// 连接池配置, Apache common-pool
+	private JedisPoolConfig jedisPoolConfig;
+
+	// 连接超时 ms
+	private int timeout;
+
+	public JedisCluster getJedisCluster() throws CacheException {
+		try {
+			HashSet<HostAndPort> hset = new HashSet<HostAndPort>();
+			String[] args = clusters.split(";");
+			for (String arg : args) {
+				String[] info = arg.split(":");
+				hset.add(new HostAndPort(info[0], Integer.valueOf(info[1])));
+			}
+			return new JedisCluster(hset, timeout, jedisPoolConfig);
+		} catch (Exception e) {
+			throw new CacheException("JedisClusterFactory.getObject error", e);
+		}
+	}
+
+	public void setClusters(String clusters) {
+		this.clusters = clusters;
+	}
+
+	public String getClusters() {
+		return clusters;
+	}
+
+	public void setJedisPoolConfig(JedisPoolConfig jedisPoolConfig) {
+		this.jedisPoolConfig = jedisPoolConfig;
+	}
+
+	public void setTimeout(int timeout) {
+		this.timeout = timeout;
+	}
+}
+
+
+public class MemCacheService implements CacheService {
+
+	private static final Logger logger = LoggerFactory.getLogger(MemCacheService.class);
+
+	private MemcachedClient memcachedClient;
+
+	/**
+	 * 新增cache, ttl=永久
+	 */
+	@Override
+	public void put(String key, Object value) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		try {
+			this.put(key, value, 0);
+			logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.put {key=" + key + "} fail ...", e);
+		}
+	}
+
+	/**
+	 * 新增cache, 指定ttl(单位：s)
+	 */
+	@Override
+	public void put(String key, Object value, int ttl) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		try {
+			memcachedClient.set(key, ttl < 0 ? 0 : ttl, value);
+			logger.info("[Cache.succ] cache.put {key=" + key + "} ...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.put {key=" + key + "} fail ...", e);
+		}
+	}
+
+	/**
+	 * 查询
+	 */
+	@Override
+	public Object get(String key) {
+		Assert.notNull(key);
+		Object o = null;
+		try {
+			o = memcachedClient.get(key);
+			if (o != null) {
+				logger.info("[Cache.succ] cache.get {key=" + key + "} ...");
+			} else {
+				logger.info("[Cache.fail] cache.get 'result is null' {key=" + key + "} ...");
+			}
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.get {key=" + key + "} fail ...", e);
+		}
+		return o;
+	}
+
+	/**
+	 * 匹配查询
+	 */
+	@Override
+	@Deprecated
+	public List<Object> gets(String keyPattern) {
+		logger.info("[Cache.fail] cache.get 'match keyPattern' //TODO, {keyPattern=" + keyPattern + "} ...");
+		return null;
+	}
+
+	/**
+	 * 查询ttl
+	 */
+	@Deprecated
+	@Override
+	public Long getTtl(String key) {
+		logger.info("[Cache.fail] cache.getTtl //TODO, {key=" + key + "} ...");
+		return null;
+	}
+
+	/**
+	 * 删除
+	 */
+	@Override
+	public Long delete(String key) {
+		Assert.notNull(key);
+		Long r = 0l;
+		try {
+			if (memcachedClient.delete(key)) {
+				r++;
+			}
+			logger.info("[Cache.succ] cache.delete {" + key + ", record=" + r + "}...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.delete {key=" + key + "} fail ...", e);
+		}
+		return r;
+	}
+
+	/**
+	 * 批量删除
+	 */
+	@Override
+	public Long delete(String... keys) {
+		Assert.notEmpty(keys);
+		Long r = 0l;
+		try {
+			for (String key : keys) {
+				if (memcachedClient.delete(key)) {
+					r++;
+				}
+			}
+			logger.info("[Cache.succ] cache.delete {" + Arrays.asList(keys) + ", record=" + r + "}...");
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.delete {key=" + Arrays.asList(keys) + "} fail ...", e);
+		}
+		return r;
+	}
+
+	@Override
+	public void publish(String key, String value) {
+		logger.warn("[Cache.warn] memcache not support publish!");
+	}
+
+	@Override
+	public void subscribe(JedisPubSub jedisPubSub, String key) {
+		logger.warn("[Cache.warn] memcache not support subscribe!");
+	}
+
+	@Override
+	public Long lpush(String key, String value) {
+		logger.warn("[Cache.warn] memcache not support lpush!");
+		return 0l;
+	}
+
+	@Override
+	public String rpop(String key) {
+		logger.warn("[Cache.warn] memcache not support rpop!");
+		return null;
+	}
+
+	@Override
+	public String brpop(String key, int ttl) {
+		logger.warn("[Cache.warn] memcache not support brpop!");
+		return null;
+	}
+
+	@Override
+	public String brpoplpush(String source, String destination, int ttl) {
+		logger.warn("[Cache.warn] memcache not support brpoplpush!");
+		return null;
+	}
+
+	@Override
+	public Long llen(String key) {
+		logger.warn("[Cache.warn] memcache not support llen!");
+		return null;
+	}
+
+	/**
+	 * 指定db新增
+	 */
+	@Override
+	public void putAssignDB(String key, Object value, int dbIndex) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		logger.info("[Cache.warn] memcache not support select DB and ignored dbIndex... ");
+		this.put(key, value);
+	}
+
+	/**
+	 * 指定db新增
+	 */
+	@Override
+	public void putAssignDB(String key, Object value, int ttl, int dbIndex) {
+		Assert.notNull(key);
+		Assert.notNull(value);
+		logger.info("[Cache.warn] memcache not support select DB and ignored dbIndex... ");
+		this.put(key, value, ttl);
+	}
+
+	/**
+	 * 指定db查询
+	 */
+	@Override
+	public Object getAssignDB(String key, int dbIndex) {
+		Assert.notNull(key);
+		logger.info("[Cache.warn] memcache not support select DB and ignored dbIndex... ");
+		return this.get(key);
+	}
+
+	/**
+	 * 指定db查询
+	 */
+	@Override
+	@Deprecated
+	public List<Object> getsAssignDB(String keyPattern, int dbIndex) {
+		logger.info("[Cache.warn] memcache not support select DB and ignored dbIndex... ");
+		return this.gets(keyPattern);
+	}
+
+	/**
+	 * 执行db查询ttl
+	 */
+	@Deprecated
+	@Override
+	public Long getTtlAssignDB(String key, int dbIndex) {
+		logger.info("[Cache.warn] memcache not support select DB and ignored dbIndex... ");
+		return getTtl(key);
+	}
+
+	/**
+	 * 指定db删除
+	 */
+	@Override
+	public Long deleteAssignDB(String key, int dbIndex) {
+		Assert.notNull(key);
+		logger.info("[Cache.warn] memcache not support select DB and ignored dbIndex... ");
+		return this.delete(key);
+	}
+
+	/**
+	 * 指定db批量删除
+	 */
+	@Override
+	public Long deleteAssignDB(int dbIndex, String... keys) {
+		Assert.notEmpty(keys);
+		logger.info("[Cache.warn] memcache not support select DB and ignored dbIndex... ");
+		return this.delete(keys);
+	}
+
+	public void setMemcachedClient(MemcachedClient memcachedClient) {
+		logger.info("[Cache.info] memcachedClient initialized:" + memcachedClient.getServersDescription() + "... ");
+		this.memcachedClient = memcachedClient;
+	}
+
+	@Override
+	public boolean setNX(String key, int ttl) {
+		Assert.notNull(key);
+		try {
+			memcachedClient.set(key, ttl < 0 ? 0 : ttl, key);
+			logger.info("[Cache.succ] cache.setNX {key=" + key + "} ...");
+			return true;
+		} catch (Exception e) {
+			logger.error("[Cache.error] cache.setNX {key=" + key + "} fail ...", e);
+			return false;
+		}
+	}
+}
+
+
+public class RedisValidator {
+
+	private static final Logger logger = LoggerFactory.getLogger(RedisValidator.class);
+
+	private static final Integer DB_MIN = 0;
+	private static final Integer DB_MAX = 15;
+	private static final String PROP_PREFIX = "${";
+	private static final String PROP_SUFFIX = "}";
+	private static final String MATCH_PATTERN = "[*]"; // 匹配模糊查询的key中关键词
+
+	// 库ID合法
+	public static boolean dbIndexLegal(Integer dbIndex) {
+		if (null != dbIndex && dbIndex.intValue() >= DB_MIN && dbIndex.intValue() <= DB_MAX) {
+			return true;
+		}
+		return false;
+	}
+
+	// property参数合法
+	public static boolean propertyLegal(String param) {
+		if (StringUtils.isEmpty(param)) {
+			return false;
+		}
+
+		// 未解析的属性：${} 必须配合 EnvPropertyLoader中ignoreUnresolvablePlaceholders使用
+		if (param.startsWith(PROP_PREFIX) && param.endsWith(PROP_SUFFIX)) {
+			return false;
+		}
+		return true;
+	}
+
+	// 是否合法的模糊匹配Key
+	public static boolean keyPatternLegal(String keyPattern) {
+		if (StringUtils.isEmpty(keyPattern)) {
+			return false;
+		}
+
+		if (keyPattern.replaceAll(MATCH_PATTERN, "").length() == 0) {
+			logger.warn("[Cache.warn] cache.get {keyPattern=" + keyPattern + "} forbbiden, must define with some clear keywords ...");
+			return false;
+		}
+
+		return true;
+	}
+}
+
+
+public enum RedisStoreEnum {
+
+	NONE("none", "key does not exist"),
+	STR("string", "key contains a String value"),
+	LIST("list", "key contains a List value"),
+	SET("set", "key contains a Set value"),
+	ZSET("zset", "key contains a Sorted Set value"),
+	HASH("hash", "key contains a Hash value");
+
+	private String key;
+	private String desc;
+
+	RedisStoreEnum(String key, String desc) {
+		this.key = key;
+		this.desc = desc;
+	}
+
+	public String getKey() {
+		return key;
+	}
+
+	public void setKey(String key) {
+		this.key = key;
+	}
+
+	public String getDesc() {
+		return desc;
+	}
+
+	public void setDesc(String desc) {
+		this.desc = desc;
+	}
+}
+
+
+
+public final class JedisContext {
+
+	private static JedisPool jedisPool;
+	private static JedisCluster jedisCluster;
+	private static JedisSentinelPool jedisSentinelPool;
+
+	public static JedisPool getJedisPool() {
+		return jedisPool;
+	}
+
+	public static void setJedisPool(JedisPool jedisPool) {
+		JedisContext.jedisPool = jedisPool;
+	}
+
+	public static JedisCluster getJedisCluster() {
+		return jedisCluster;
+	}
+
+	public static void setJedisCluster(JedisCluster jedisCluster) {
+		JedisContext.jedisCluster = jedisCluster;
+	}
+
+	public static JedisSentinelPool getJedisSentinelPool() {
+		return jedisSentinelPool;
+	}
+
+	public static void setJedisSentinelPool(JedisSentinelPool jedisSentinelPool) {
+		JedisContext.jedisSentinelPool = jedisSentinelPool;
+	}
+
+	public static final String KEY_GROUP = "KEY_GROUP";
+
+	public static String groupKey(String key) {
+		String groupKey = "";
+		if (!key.endsWith(KEY_GROUP)) {
+			if (key.indexOf(":") != -1) {
+				groupKey = key.substring(0, key.lastIndexOf(":"));
+
+				if (!groupKey.endsWith(":")) {
+					groupKey += ":";
+				}
+
+				groupKey += KEY_GROUP;
+			}
+		}
+		return groupKey;
+	}
+	
+}
+
+
+
+
+
+
